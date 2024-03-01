@@ -10,6 +10,7 @@ type User struct {
 	Email           string `json:"email" gorm:"unique;type:varchar(191)"`
 	Password        string `json:"password" gorm:"not null"`
 	ConfirmPassword string `json:"confirm-password" gorm:"-"`
+	VerificationCode string `json:"verification_code"`
 }
 
 type RevokedToken struct {

@@ -7,7 +7,7 @@ import (
 
 func SetupRoutes(app *fiber.App) {
 
-    app.Post("/register", controller.SingUp)
+    app.Post("/register", controller.SignUp)
     app.Get("/login", controller.SignIn)
     app.Post("/logout", controller.Logout)
 
