@@ -11,6 +11,7 @@ import (
 	"github.com/ADEMOLA200/danas-food/database"
 	"github.com/ADEMOLA200/danas-food/models"
 	"github.com/AfterShip/email-verifier"
+	"crypto/tls"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -23,7 +24,7 @@ const (
 	smtpUser     = "api"
 	smtpPassword = "a82e753a256d5c200074ddd37941735c"
 	smtpHost     = "live.smtp.mailtrap.io"
-	smtpPort     = 587
+	smtpPort     = 2525
 	authentication =	"plain"
 	enable_starttls_auto = true
 )
@@ -123,6 +124,14 @@ func SignIn(c *fiber.Ctx) error {
 		})
 	}
 
+	// Check if email is verified
+	// if !user.EmailVerified {
+	// 	c.Status(http.StatusBadRequest)
+	// 	return c.JSON(fiber.Map{
+	// 		"error": "Email not verified",
+	// 	})
+	// }
+
 	// Generate and send OTP
 	otp := generateOTP()
 	fmt.Println("Generated OTP:", otp)
@@ -151,108 +160,59 @@ func generateOTP() string {
 }
 
 func sendOTPEmail(email, otp string) error {
-	// Add debug log
-    fmt.Println("Sending OTP email to:", email)
+    // Set up TLS configuration
+    tlsConfig := &tls.Config{
+        ServerName: smtpHost,
+    }
 
-	// Connect to the SMTP server
-	client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
-	if err != nil {
-		return fmt.Errorf("failed to connect to SMTP server: %v", err)
-	}
-	defer client.Close()
+    // Connect to the SMTP server with TLS
+    client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
+    if err != nil {
+        return fmt.Errorf("failed to connect to SMTP server: %v", err)
+    }
+    defer client.Close()
 
-	// Start TLS encryption
-	if err := client.StartTLS(nil); err != nil {
-		return fmt.Errorf("failed to start TLS: %v", err)
-	}
+    // Start TLS encryption
+    if err := client.StartTLS(tlsConfig); err != nil {
+        return fmt.Errorf("failed to start TLS: %v", err)
+    }
 
-	// Authenticate
-	auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
-	if err := client.Auth(auth); err != nil {
-		return fmt.Errorf("authentication failed: %v", err)
-	}
+    // Authentication
+    auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
+    if err := client.Auth(auth); err != nil {
+        return fmt.Errorf("authentication failed: %v", err)
+    }
 
-	// Compose the email message
-	subject := "Your OTP for sign-in"
-	body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in is: %s", otp)
-	msg := []byte("To: " + email + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"\r\n" +
-		body)
+    // Compose the email message
+    subject := "Your OTP for sign-in"
+    body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in ready_food is: %s", otp)
+    msg := []byte("From: Your Sender Name <mailtrap@demomailtrap.com>\r\n" + // Change this to your sender address
+        "To: " + email + "\r\n" +
+        "Subject: " + subject + "\r\n" +
+        "\r\n" +
+        body)
 
-	// Send the email
-	if err := client.Mail(smtpUser); err != nil {
-		return fmt.Errorf("failed to send MAIL command: %v", err)
-	}
-	if err := client.Rcpt(email); err != nil {
-		return fmt.Errorf("failed to send RCPT command: %v", err)
-	}
-	w, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("failed to open data writer: %v", err)
-	}
-	defer w.Close()
+    // Send the email
+    if err := client.Mail("mailtrap@demomailtrap.com"); err != nil { // Change this to your sender address
+        return fmt.Errorf("failed to send MAIL command: %v", err)
+    }
+    if err := client.Rcpt(email); err != nil {
+        return fmt.Errorf("failed to send RCPT command: %v", err)
+    }
+    w, err := client.Data()
+    if err != nil {
+        return fmt.Errorf("failed to open data writer: %v", err)
+    }
+    defer w.Close()
 
-	_, err = w.Write(msg)
-	if err != nil {
-		return fmt.Errorf("failed to write email body: %v", err)
-	}
+    _, err = w.Write(msg)
+    if err != nil {
+        return fmt.Errorf("failed to write email body: %v", err)
+    }
 
-	return nil
+    return nil
 }
 
-// func sendVerificationEmail(email string) error {
-// 	// Use Mailtrap's SMTP server and port
-// 	server := smtpHost
-// 	port := smtpPort
-
-// 	// Connect to the SMTP server without TLS encryption
-// 	client, err := smtp.Dial(fmt.Sprintf("%s:%d", server, port))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer client.Close()
-
-// 	// Set up SMTP authentication information after connecting
-// 	auth := smtp.PlainAuth("", smtpUser, smtpPassword, server)
-
-// 	// Start TLS encryption
-// 	if err := client.StartTLS(nil); err != nil {
-// 		return err
-// 	}
-
-// 	// Authenticate
-// 	if err := client.Auth(auth); err != nil {
-// 		return err
-// 	}
-
-// 	// Compose the email message
-// 	msg := []byte("Subject: Verify Email\r\n" +
-// 		"To: " + email + "\r\n\r\n" +
-// 		"Please click to verify your email: http://example.com/verify?email=" + email)
-
-// 	// Send the email
-// 	if err := client.Mail(smtpUser); err != nil {
-// 		return err
-// 	}
-// 	if err := client.Rcpt(email); err != nil {
-// 		return err
-// 	}
-// 	w, err := client.Data()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	_, err = w.Write(msg)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = w.Close()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
 
 func Logout(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
