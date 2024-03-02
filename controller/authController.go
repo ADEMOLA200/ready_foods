@@ -23,7 +23,7 @@ var (
 const (
 	smtpUser     = "api"
 	smtpPassword = "a82e753a256d5c200074ddd37941735c"
-	smtpHost     = "live.smtp.mailtrap.io"
+	smtpHost     = "bulk.smtp.mailtrap.io"
 	smtpPort     = 2525
 	authentication =	"plain"
 	enable_starttls_auto = true
@@ -185,8 +185,8 @@ func sendOTPEmail(email, otp string) error {
 
     // Compose the email message
     subject := "Your OTP for sign-in"
-    body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in ready_food is: %s", otp)
-    msg := []byte("From: Your Sender Name <mailtrap@demomailtrap.com>\r\n" + // Change this to your sender address
+    body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in testing OTP Authentication is: %s", otp)
+    msg := []byte("From: ODUKOYA ABDULLAHI ADEMOLA <mailtrap@demomailtrap.com>\r\n" + // Change this to your sender address
         "To: " + email + "\r\n" +
         "Subject: " + subject + "\r\n" +
         "\r\n" +
