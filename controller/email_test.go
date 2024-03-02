@@ -20,7 +20,7 @@
 
 // func sendOTPEmail(email, otp string) error {
 // 	smtpUser := "odukoyaabdullahi01@gmail.com"
-// 	smtpPassword := "Habibatodukoya"
+// 	smtpPassword := "*******************"
 // 	smtpHost := "smtp.gmail.com"
 // 	smtpPort := 587
 
