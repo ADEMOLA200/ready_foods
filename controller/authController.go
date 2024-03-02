@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/smtp"
+	"strconv"
 	"time"
 
 	"github.com/ADEMOLA200/danas-food/database"
@@ -19,10 +20,12 @@ var (
 )
 
 const (
-	smtpUser     = "odukoyaabdullahi01@gmail.com"
-	smtpPassword = "CB6DC2CC0E675DA892EC58BE0DC8D29BD301"
-	smtpHost     = "smtp.elasticemail.com"
-	smtpPort     = 2525
+	smtpUser     = "api"
+	smtpPassword = "a82e753a256d5c200074ddd37941735c"
+	smtpHost     = "live.smtp.mailtrap.io"
+	smtpPort     = 587
+	authentication =	"plain"
+	enable_starttls_auto = true
 )
 
 func SignUp(c *fiber.Ctx) error {
@@ -94,18 +97,9 @@ func SignUp(c *fiber.Ctx) error {
 		})
 	}
 
-	// Send verification email
-	err = sendVerificationEmail(user.Email)
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"error": "Error sending verification email",
-		})
-	}
-
 	c.Status(http.StatusOK)
 	return c.JSON(fiber.Map{
-		"message": "Verification email sent successfully",
+		"message": "User created successfully",
 	})
 }
 
@@ -131,25 +125,15 @@ func SignIn(c *fiber.Ctx) error {
 
 	// Generate and send OTP
 	otp := generateOTP()
+	fmt.Println("Generated OTP:", otp)
 	err := sendOTPEmail(user.Email, otp)
 	if err != nil {
+		fmt.Println("Error sending OTP email:", err)
 		c.Status(http.StatusInternalServerError)
 		return c.JSON(fiber.Map{
 			"error": "Error sending OTP",
 		})
 	}
-
-	// Send verification email
-	err = sendVerificationEmail(user.Email)
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"error": "Error sending verification email",
-		})
-	}
-
-	// Save OTP to the database (optional)
-	// saveOTPToDatabase(user.ID, otp)
 
 	c.Status(http.StatusOK)
 	return c.JSON(fiber.Map{
@@ -167,31 +151,25 @@ func generateOTP() string {
 }
 
 func sendOTPEmail(email, otp string) error {
-	// Use Elastic Email's SMTP server and port
-	server := "smtp.elasticemail.com"
-	port := 2525
+	// Add debug log
+    fmt.Println("Sending OTP email to:", email)
 
-	// Set up SMTP password
-	PASSWORD := "CB6DC2CC0E675DA892EC58BE0DC8D29BD301"
-
-	// Connect to the SMTP server without TLS encryption
-	client, err := smtp.Dial(fmt.Sprintf("%s:%d", server, port))
+	// Connect to the SMTP server
+	client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to SMTP server: %v", err)
 	}
 	defer client.Close()
 
-	// Set up SMTP authentication information after connecting
-	auth := smtp.PlainAuth("", "odukoyaabdullahi01@gmail.com", PASSWORD, server)
-
 	// Start TLS encryption
 	if err := client.StartTLS(nil); err != nil {
-		return err
+		return fmt.Errorf("failed to start TLS: %v", err)
 	}
 
 	// Authenticate
+	auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
 	if err := client.Auth(auth); err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %v", err)
 	}
 
 	// Compose the email message
@@ -203,104 +181,73 @@ func sendOTPEmail(email, otp string) error {
 		body)
 
 	// Send the email
-	if err := client.Mail("odukoyaabdullahi01@gmail.com"); err != nil {
-		return err
+	if err := client.Mail(smtpUser); err != nil {
+		return fmt.Errorf("failed to send MAIL command: %v", err)
 	}
 	if err := client.Rcpt(email); err != nil {
-		return err
+		return fmt.Errorf("failed to send RCPT command: %v", err)
 	}
 	w, err := client.Data()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open data writer: %v", err)
 	}
+	defer w.Close()
+
 	_, err = w.Write(msg)
 	if err != nil {
-		return err
-	}
-	err = w.Close()
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to write email body: %v", err)
 	}
 
 	return nil
 }
 
-func sendVerificationEmail(email string) error {
-
-	// SMTP Auth
-	auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
-
-	// Connect to SMTP Server
-	client, err := smtp.Dial(fmt.Sprintf("%s:%d", smtpHost, smtpPort))
-	if err != nil {
-		return err
-	}
-
-	// Enable TLS encryption
-	client.StartTLS(nil)
-
-	// Authenticate
-	if err = client.Auth(auth); err != nil {
-		return err
-	}
-
-	// Set sender and recipient
-	if err = client.Mail(smtpUser); err != nil {
-		return err
-	}
-
-	if err = client.Rcpt(email); err != nil {
-		return err
-	}
-
-	// Send verification email
-	msg := []byte("Subject: Verify Email\r\n" +
-		"To: " + email + "\r\n\r\n" +
-		"Please click to verify your email: http://example.com/verify?email=" + email)
-
-	w, err := client.Data()
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(msg)
-	if err != nil {
-		return err
-	}
-
-	err = w.Close()
-	if err != nil {
-		return err
-	}
-
-	return client.Quit()
-
-}
-
 // func sendVerificationEmail(email string) error {
-// 	// Similar to sendOTPEmail but for sending verification email
-// 	// Use Elastic Email's SMTP server and port
-// 	server := "smtp.elasticemail.com"
-// 	port := 2525
+// 	// Use Mailtrap's SMTP server and port
+// 	server := smtpHost
+// 	port := smtpPort
 
-// 	// Set up SMTP authentication information
-// 	API_KEY := "70DF5D7505B200C6469A36F379D73DC465AEFAF0090697D8EA6AE2DACCB4BAC6BEED005114D216CB8423837FE5FA6135"
+// 	// Connect to the SMTP server without TLS encryption
+// 	client, err := smtp.Dial(fmt.Sprintf("%s:%d", server, port))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer client.Close()
 
-// 	auth := smtp.PlainAuth("", "odukoyaabdullahi01@gmail.com", API_KEY, server)
+// 	// Set up SMTP authentication information after connecting
+// 	auth := smtp.PlainAuth("", smtpUser, smtpPassword, server)
 
-// 	// Compose the email message for verification
-// 	subject := "Verify your email address"
-// 	body := "Please verify your email address by clicking the link below:\n\n" +
-// 		"http://odukoyaabdullahi01@gmail.com/verify?email=" + email
-// 	msg := []byte("To: " + email + "\r\n" +
-// 		"Subject: " + subject + "\r\n" +
-// 		"\r\n" +
-// 		body)
+// 	// Start TLS encryption
+// 	if err := client.StartTLS(nil); err != nil {
+// 		return err
+// 	}
+
+// 	// Authenticate
+// 	if err := client.Auth(auth); err != nil {
+// 		return err
+// 	}
+
+// 	// Compose the email message
+// 	msg := []byte("Subject: Verify Email\r\n" +
+// 		"To: " + email + "\r\n\r\n" +
+// 		"Please click to verify your email: http://example.com/verify?email=" + email)
 
 // 	// Send the email
-// 	err := smtp.SendMail(fmt.Sprintf("%s:%d", server, port), auth, "odukoyaabdullahi01@gmail.com", []string{email}, msg)
+// 	if err := client.Mail(smtpUser); err != nil {
+// 		return err
+// 	}
+// 	if err := client.Rcpt(email); err != nil {
+// 		return err
+// 	}
+// 	w, err := client.Data()
 // 	if err != nil {
-// 		fmt.Printf("Error sending OTP email: %v\n", err)
+// 		return err
+// 	}
+// 	_, err = w.Write(msg)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	err = w.Close()
+// 	if err != nil {
 // 		return err
 // 	}
 
