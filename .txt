@@ -339,3 +339,30 @@ func Logout(c *fiber.Ctx) error {
 		"message": "Logout successful",
 	})
 }
+
+
+
+
+
+// Generate and send OTP
+	otp := generateOTP()
+	fmt.Println("Generated OTP:", otp)
+	err := sendOTPEmail(user.Email, otp)
+	if err != nil {
+		fmt.Println("Error sending OTP email:", err)
+		c.Status(http.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"error": "Error sending OTP",
+		})
+	}
+
+
+
+
+
+CNAME demo.demomailtrap.com -> smtp.mailtrap.live
+TXT demomailtrap.com -> v=spf1 include:_spf.smtp.mailtrap.live ~all
+CNAME rwmt1._domainkey.demomailtrap.com -> rwmt1.dkim.smtp.mailtrap.live
+CNAME rwmt2._domainkey.demomailtrap.com -> rwmt2.dkim.smtp.mailtrap.live
+TXT _dmarc.demomailtrap.com -> v=DMARC1; p=none; rua=mailto:dmarc@smtp.mailtrap.live; ruf=mailto:dmarc@smtp.mailtrap.live; rf=afrf; pct=100
+CNAME mt-link.demomailtrap.com -> t.mailtrap.live
