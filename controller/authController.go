@@ -24,10 +24,10 @@ var (
 )
 
 const (
-	smtpUser     = "odukoyaabdullahi01@gmail.com"
-	smtpPassword = "3CD1ED5DF4141B8B8EF4565D38847D6D96FF"
-	smtpHost     = "smtp.elasticemail.com"
-	smtpPort     = 2525
+	smtpUser     = "example@gmail.com" // Add your SMTP username here
+	smtpPassword = "*********************" // Add your SMTP password here
+	smtpHost     = "smtp.gmail.com" // Add your SMTP host here i'm using elastic email for this example
+	smtpPort     = 2525 // Add your SMTP port here, you can get it from your provider
 	authentication =	"plain"
 	enable_starttls_auto = true
 )
