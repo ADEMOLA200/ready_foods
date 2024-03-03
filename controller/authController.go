@@ -2,10 +2,12 @@ package controller
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"net/smtp"
+	"os"
 	"strconv"
 	"text/template"
 	"time"
@@ -24,10 +26,10 @@ var (
 )
 
 const (
-	smtpUser     = "example@gmail.com" // Add your SMTP username here
-    smtpPassword = "*********************" // Add your SMTP password here
-    smtpHost     = "smtp.gmail.com" // Add your SMTP host here i'm smtp.gmail.com for this example
-    smtpPort     = 2525 // Add your SMTP port here, you can get it from your provider
+	smtpUserEnv     = "SMTP_USER" // SMTP username environment variable
+    smtpPasswordEnv = "SMTP_PASSWORD" // SMTP password environment variable
+	smtpHost     = "smtp.elasticemail.com"
+	smtpPort     = 2525
 	authentication =	"plain"
 	enable_starttls_auto = true
 )
@@ -160,13 +162,13 @@ func SignIn(c *fiber.Ctx) error {
 
     // Send OTP to user's email
     err = sendOTPEmail(user.Email, otp)
-    if err != nil {
-        fmt.Println("Error sending OTP email:", err)
-        c.Status(http.StatusInternalServerError)
-        return c.JSON(fiber.Map{
-            "error": "Error sending OTP",
-        })
-    }
+	if err != nil {
+		fmt.Printf("Error sending OTP email to %s: %v\n", user.Email, err)
+		c.Status(http.StatusInternalServerError)
+		return c.JSON(fiber.Map{
+			"error": fmt.Sprintf("Error sending OTP email to %s: %v", user.Email, err),
+		})
+	}
 
     c.Status(http.StatusOK)
     return c.JSON(fiber.Map{
@@ -188,6 +190,15 @@ func generateOTP() (string, error) {
 }
 
 func sendOTPEmail(email, otp string) error {
+	// Retrieve SMTP credentials from environment variables
+    smtpUser := os.Getenv(smtpUserEnv)
+    smtpPassword := os.Getenv(smtpPasswordEnv)
+
+	 // Check if SMTP credentials are empty
+	 if smtpUser == "" || smtpPassword == "" {
+        return errors.New("SMTP credentials not set")
+    }
+
     // Set up TLS configuration
     tlsConfig := &tls.Config{
         ServerName: smtpHost,
@@ -330,7 +341,6 @@ func sendOTPEmail(email, otp string) error {
 
     return nil
 }
-
 // Controller logic for verifying OTP
 func VerifyOTP(c *fiber.Ctx) error {
     var verifyRequest map[string]string
@@ -353,6 +363,18 @@ func VerifyOTP(c *fiber.Ctx) error {
         })
     }
 
+    // Check if OTP has expired
+    if user.OTPTime != nil {
+        creationTime := *user.OTPTime
+        expirationTime := creationTime.Add(1 * time.Minute)
+        if time.Now().After(expirationTime) {
+            c.Status(http.StatusBadRequest)
+            return c.JSON(fiber.Map{
+                "error": "OTP has expired",
+            })
+        }
+    }
+
     // Clear OTP after successful verification
     user.OTP = ""
     if err := database.DB.Save(&user).Error; err != nil {
@@ -370,6 +392,7 @@ func VerifyOTP(c *fiber.Ctx) error {
         "message": "OTP verification successful. You can now sign in.",
     })
 }
+
 
 func Logout(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
