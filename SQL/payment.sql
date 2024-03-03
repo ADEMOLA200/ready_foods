@@ -7,13 +7,13 @@
       "id": 1,
       "name": "Pizza",
       "price": 10,
-      "order_id": 0
+      "order_id": 1
     },
     {
       "id": 2,
       "name": "Burger",
       "price": 8,
-      "order_id": 0
+      "order_id": 2
     }
   ],
   "total_items": 2,

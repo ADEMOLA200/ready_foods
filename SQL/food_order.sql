@@ -13,6 +13,6 @@
         }
     ],
     "total_item": 2,
-    "total_pay": 25,
+    "total_pay": 600,
     "create_dtm": "2024-02-08T12:00:00Z"
 }
