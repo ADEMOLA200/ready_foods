@@ -12,10 +12,15 @@ type User struct {
 	ConfirmPassword string `json:"confirm-password" gorm:"-"`
 	EmailVerified bool      `gorm:"default:false"`
 	VerificationCode string `json:"verification_code"`
+	OTP              string `json:"otp"`
 }
 
 type RevokedToken struct {
 	ID        uint   `gorm:"primary_key" json:"id"`
 	Token     string `gorm:"type:varchar(255);unique_index" json:"token"`
 	RevokedAt time.Time
+}
+
+type OTP struct {
+	OTP              string `json:"otp"`
 }

@@ -1,17 +1,20 @@
 package controller
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"net/smtp"
 	"strconv"
+	"text/template"
 	"time"
+
+	"crypto/tls"
 
 	"github.com/ADEMOLA200/danas-food/database"
 	"github.com/ADEMOLA200/danas-food/models"
 	"github.com/AfterShip/email-verifier"
-	"crypto/tls"
 	"github.com/gofiber/fiber/v2"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,10 +24,10 @@ var (
 )
 
 const (
-	smtpUser     = "example@gmail.com" // Add your smtp username here
-	smtpPassword = "**********************" // Add your elasticemail password here
-	smtpHost     = "smtp.elasticemail.com" // Add your smtp host here
-	smtpPort     = 2525 // Add your smtp port here, usually it is 465 or 2525
+	smtpUser     = "odukoyaabdullahi01@gmail.com"
+	smtpPassword = "3CD1ED5DF4141B8B8EF4565D38847D6D96FF"
+	smtpHost     = "smtp.elasticemail.com"
+	smtpPort     = 2525
 	authentication =	"plain"
 	enable_starttls_auto = true
 )
@@ -104,114 +107,268 @@ func SignUp(c *fiber.Ctx) error {
 	})
 }
 
+// Controller logic for sending OTP after successful sign-in attempt
 func SignIn(c *fiber.Ctx) error {
-	var loginRequest map[string]string
+    var loginRequest map[string]string
 
-	if err := c.BodyParser(&loginRequest); err != nil {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "Invalid JSON format",
-		})
-	}
+    if err := c.BodyParser(&loginRequest); err != nil {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Invalid JSON format",
+        })
+    }
 
-	var user models.User
+    var user models.User
 
-	r := database.DB.Where("email = ?", loginRequest["email"]).First(&user)
-	if r.Error != nil {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "User not found",
-		})
-	}
+    r := database.DB.Where("email = ?", loginRequest["email"]).First(&user)
+    if r.Error != nil {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "User not found",
+        })
+    }
 
-	// Check if email is verified
-	// if !user.EmailVerified {
-	// 	c.Status(http.StatusBadRequest)
-	// 	return c.JSON(fiber.Map{
-	// 		"error": "Email not verified",
-	// 	})
-	// }
+    // Verify user's password
+    err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest["password"]))
+    if err != nil {
+        c.Status(http.StatusUnauthorized)
+        return c.JSON(fiber.Map{
+            "error": "Invalid credentials",
+        })
+    }
 
-	// Generate and send OTP
-	otp := generateOTP()
-	fmt.Println("Generated OTP:", otp)
-	err := sendOTPEmail(user.Email, otp)
-	if err != nil {
-		fmt.Println("Error sending OTP email:", err)
-		c.Status(http.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"error": "Error sending OTP",
-		})
-	}
+    // Generate OTP
+    otp, err := generateOTP()
+    if err != nil {
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Failed to generate OTP",
+        })
+    }
 
-	c.Status(http.StatusOK)
-	return c.JSON(fiber.Map{
-		"message": "OTP sent to your email",
-	})
+    // Log the generated OTP
+    fmt.Println("Generated OTP:", otp)
+
+    // Associate OTP with user
+    user.OTP = otp
+    if err := database.DB.Save(&user).Error; err != nil {
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Failed to save OTP",
+        })
+    }
+
+    // Send OTP to user's email
+    err = sendOTPEmail(user.Email, otp)
+    if err != nil {
+        fmt.Println("Error sending OTP email:", err)
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Error sending OTP",
+        })
+    }
+
+    c.Status(http.StatusOK)
+    return c.JSON(fiber.Map{
+        "message": "OTP sent to your email",
+    })
 }
 
-func generateOTP() string {
+// Modified generateOTP function to return an error
+func generateOTP() (string, error) {
 	// Generate a random 6-digit OTP
 	otp := ""
 	for i := 0; i < 6; i++ {
 		otp += string(rune('0' + rand.Intn(10)))
 	}
-	return otp
+	if len(otp) != 6 {
+		return "", fmt.Errorf("failed to generate OTP")
+	}
+	return otp, nil
 }
 
 func sendOTPEmail(email, otp string) error {
     // Set up TLS configuration
-	tlsConfig := &tls.Config{
-		ServerName: smtpHost,
-	}
+    tlsConfig := &tls.Config{
+        ServerName: smtpHost,
+    }
 
-	// Connect to the SMTP server with TLS
-	client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
-	if err != nil {
-		return fmt.Errorf("failed to connect to SMTP server: %v", err)
-	}
-	defer client.Close()
+    // Connect to the SMTP server with TLS
+    client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
+    if err != nil {
+        return fmt.Errorf("failed to connect to SMTP server: %v", err)
+    }
+    defer client.Close()
 
-	// Start TLS encryption
-	if err := client.StartTLS(tlsConfig); err != nil {
-		return fmt.Errorf("failed to start TLS: %v", err)
-	}
+    // Start TLS encryption
+    if err := client.StartTLS(tlsConfig); err != nil {
+        return fmt.Errorf("failed to start TLS: %v", err)
+    }
 
-	// Authentication
-	auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
-	if err := client.Auth(auth); err != nil {
-		return fmt.Errorf("authentication failed: %v", err)
-	}
+    // Authentication
+    auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
+    if err := client.Auth(auth); err != nil {
+        return fmt.Errorf("authentication failed: %v", err)
+    }
 
-	// Set up email headers and content
-	fromAddress := "Odukoya Abdullahi Ademola <no-reply@example.com>"
-	subject := "Your OTP for sign-in"
-	body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in ready_foods (testing OTP Authentication) is: %s", otp)
-	msg := []byte("From: " + fromAddress + "\r\n" +
-		"To: " + email + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"\r\n" +
-		body)
+    // Load the HTML email template
+    htmlTemplate := `
+		<!DOCTYPE html>
+		<html lang="en">
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<title>OTP Email</title>
+			<style>
+				body {
+					font-family: Arial, sans-serif;
+					background-color: #f4f4f4;
+					padding: 20px;
+				}
+				.container {
+					max-width: 600px;
+					margin: 0 auto;
+					background-color: #fff;
+					padding: 20px;
+					border-radius: 10px;
+					box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+				}
+				.header {
+					background-color: #3498db;
+					color: #fff;
+					text-align: center;
+					padding: 10px 0;
+					border-top-left-radius: 10px;
+					border-top-right-radius: 10px;
+				}
+				.content {
+					padding: 20px;
+				}
+				.footer {
+					text-align: center;
+					padding: 10px 0;
+					border-bottom-left-radius: 10px;
+					border-bottom-right-radius: 10px;
+				}
+				.otp {
+					font-size: 24px;
+					text-align: center;
+					margin-bottom: 20px;
+				}
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h2> Ready  Foods </h2>
+				</div>
+				<div class="content">
+					<p>Dear User,</p>
+					<p>Your OTP (One-Time Password) for sign-in is:</p>
+					<div class="otp">{{.OTP}}</div>
+					<p>Please use this OTP to proceed with your sign-in.</p>
+				</div>
+				<div class="footer">
+					<p>This is an automated email. Please do not reply.</p>
+				</div>
+			</div>
+		</body>
+		</html>
+    `
 
-	// Send the email
-	if err := client.Mail("example@gmail.com"); err != nil { // Add your email instead of example@gmail.com
-		return fmt.Errorf("failed to send MAIL command: %v", err)
-	}
-	if err := client.Rcpt(email); err != nil {
-		return fmt.Errorf("failed to send RCPT command: %v", err)
-	}
-	w, err := client.Data()
-	if err != nil {
-		return fmt.Errorf("failed to open data writer: %v", err)
-	}
-	defer w.Close()
+    // Create a new template and parse the HTML
+    t := template.New("emailTemplate")
+    t, err = t.Parse(htmlTemplate)
+    if err != nil {
+        return fmt.Errorf("failed to parse email template: %v", err)
+    }
 
-	_, err = w.Write(msg)
-	if err != nil {
-		return fmt.Errorf("failed to write email body: %v", err)
-	}
+    // Prepare data to be passed into the template
+    data := struct {
+        OTP string
+    }{
+        OTP: otp,
+    }
 
-	return nil
+    // Execute the template to generate the HTML body
+    var tpl bytes.Buffer
+    if err := t.Execute(&tpl, data); err != nil {
+        return fmt.Errorf("failed to execute template: %v", err)
+    }
+    htmlBody := tpl.String()
+
+    // Compose the email message
+    fromAddress := "Odukoya Abdullahi Ademola <no-reply@example.com>"
+    toAddress := email
+    subject := "Your OTP for sign-in"
+    contentType := "text/html; charset=UTF-8"
+    msg := []byte("From: " + fromAddress + "\r\n" +
+        "To: " + toAddress + "\r\n" +
+        "Subject: " + subject + "\r\n" +
+        "MIME-Version: 1.0\r\n" +
+        "Content-Type: " + contentType + "\r\n" +
+        "\r\n" +
+        htmlBody)
+
+    // Send the email
+    if err := client.Mail(smtpUser); err != nil {
+        return fmt.Errorf("failed to send MAIL command: %v", err)
+    }
+    if err := client.Rcpt(toAddress); err != nil {
+        return fmt.Errorf("failed to send RCPT command: %v", err)
+    }
+    w, err := client.Data()
+    if err != nil {
+        return fmt.Errorf("failed to open data writer: %v", err)
+    }
+    defer w.Close()
+
+    _, err = w.Write(msg)
+    if err != nil {
+        return fmt.Errorf("failed to write email body: %v", err)
+    }
+
+    return nil
+}
+
+// Controller logic for verifying OTP
+func VerifyOTP(c *fiber.Ctx) error {
+    var verifyRequest map[string]string
+
+    if err := c.BodyParser(&verifyRequest); err != nil {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Invalid JSON format",
+        })
+    }
+
+    var user models.User
+
+    // Fetch the user based on the OTP
+    r := database.DB.Where("otp = ?", verifyRequest["otp"]).First(&user)
+    if r.Error != nil {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Invalid OTP",
+        })
+    }
+
+    // Clear OTP after successful verification
+    user.OTP = ""
+    if err := database.DB.Save(&user).Error; err != nil {
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Failed to clear OTP",
+        })
+    }
+
+    // Proceed with sign-in
+    // You can set up session or JWT token here
+
+    c.Status(http.StatusOK)
+    return c.JSON(fiber.Map{
+        "message": "OTP verification successful. You can now sign in.",
+    })
 }
 
 func Logout(c *fiber.Ctx) error {

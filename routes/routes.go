@@ -1,8 +1,8 @@
 package routes
 
 import (
-	"github.com/ADEMOLA200/danas-food/controller"
-	"github.com/gofiber/fiber/v2"
+    "github.com/ADEMOLA200/danas-food/controller"
+    "github.com/gofiber/fiber/v2"
 )
 
 func SetupRoutes(app *fiber.App) {
@@ -18,15 +18,16 @@ func SetupRoutes(app *fiber.App) {
     app.Put("/orders/:id", controller.UpdateOrder)
     app.Delete("/orders/:id", controller.DeleteOrder)
 
-    // ment routes...
+    // Define routes for Menu
     app.Post("/menu", controller.AddMenuItem)
     app.Put("/menu/:id", controller.UpdateMenuItem)
     app.Delete("/menu/:id", controller.DeleteMenuItem)
 
-    //Payment
+    // Payment routes
     app.Post("/payment", controller.HandlePayment)
     app.Post("/payment/callback", controller.PaymentCallback)
 
-    //app.Get("/test/sendotp", controller.TestSendOTP)
+    // Route for OTP verification
+    app.Post("/verify-otp", controller.VerifyOTP)
 
 }
