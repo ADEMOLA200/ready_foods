@@ -21,10 +21,10 @@ var (
 )
 
 const (
-	smtpUser     = "api"
-	smtpPassword = "a82e753a256d5c200074ddd37941735c"
-	smtpHost     = "bulk.smtp.mailtrap.io"
-	smtpPort     = 2525
+	smtpUser     = "example@gmail.com" // Add your smtp username here
+	smtpPassword = "**********************" // Add your elasticemail password here
+	smtpHost     = "smtp.elasticemail.com" // Add your smtp host here
+	smtpPort     = 2525 // Add your smtp port here, usually it is 465 or 2525
 	authentication =	"plain"
 	enable_starttls_auto = true
 )
@@ -161,58 +161,58 @@ func generateOTP() string {
 
 func sendOTPEmail(email, otp string) error {
     // Set up TLS configuration
-    tlsConfig := &tls.Config{
-        ServerName: smtpHost,
-    }
+	tlsConfig := &tls.Config{
+		ServerName: smtpHost,
+	}
 
-    // Connect to the SMTP server with TLS
-    client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
-    if err != nil {
-        return fmt.Errorf("failed to connect to SMTP server: %v", err)
-    }
-    defer client.Close()
+	// Connect to the SMTP server with TLS
+	client, err := smtp.Dial(smtpHost + ":" + strconv.Itoa(smtpPort))
+	if err != nil {
+		return fmt.Errorf("failed to connect to SMTP server: %v", err)
+	}
+	defer client.Close()
 
-    // Start TLS encryption
-    if err := client.StartTLS(tlsConfig); err != nil {
-        return fmt.Errorf("failed to start TLS: %v", err)
-    }
+	// Start TLS encryption
+	if err := client.StartTLS(tlsConfig); err != nil {
+		return fmt.Errorf("failed to start TLS: %v", err)
+	}
 
-    // Authentication
-    auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
-    if err := client.Auth(auth); err != nil {
-        return fmt.Errorf("authentication failed: %v", err)
-    }
+	// Authentication
+	auth := smtp.PlainAuth("", smtpUser, smtpPassword, smtpHost)
+	if err := client.Auth(auth); err != nil {
+		return fmt.Errorf("authentication failed: %v", err)
+	}
 
-    // Compose the email message
-    subject := "Your OTP for sign-in"
-    body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in testing OTP Authentication is: %s", otp)
-    msg := []byte("From: ODUKOYA ABDULLAHI ADEMOLA <mailtrap@demomailtrap.com>\r\n" + // Change this to your sender address
-        "To: " + email + "\r\n" +
-        "Subject: " + subject + "\r\n" +
-        "\r\n" +
-        body)
+	// Set up email headers and content
+	fromAddress := "Odukoya Abdullahi Ademola <no-reply@example.com>"
+	subject := "Your OTP for sign-in"
+	body := fmt.Sprintf("Your OTP (One-Time Password) for sign-in ready_foods (testing OTP Authentication) is: %s", otp)
+	msg := []byte("From: " + fromAddress + "\r\n" +
+		"To: " + email + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"\r\n" +
+		body)
 
-    // Send the email
-    if err := client.Mail("mailtrap@demomailtrap.com"); err != nil { // Change this to your sender address
-        return fmt.Errorf("failed to send MAIL command: %v", err)
-    }
-    if err := client.Rcpt(email); err != nil {
-        return fmt.Errorf("failed to send RCPT command: %v", err)
-    }
-    w, err := client.Data()
-    if err != nil {
-        return fmt.Errorf("failed to open data writer: %v", err)
-    }
-    defer w.Close()
+	// Send the email
+	if err := client.Mail("example@gmail.com"); err != nil { // Add your email instead of example@gmail.com
+		return fmt.Errorf("failed to send MAIL command: %v", err)
+	}
+	if err := client.Rcpt(email); err != nil {
+		return fmt.Errorf("failed to send RCPT command: %v", err)
+	}
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("failed to open data writer: %v", err)
+	}
+	defer w.Close()
 
-    _, err = w.Write(msg)
-    if err != nil {
-        return fmt.Errorf("failed to write email body: %v", err)
-    }
+	_, err = w.Write(msg)
+	if err != nil {
+		return fmt.Errorf("failed to write email body: %v", err)
+	}
 
-    return nil
+	return nil
 }
-
 
 func Logout(c *fiber.Ctx) error {
 	cookie := fiber.Cookie{
