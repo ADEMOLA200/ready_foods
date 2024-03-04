@@ -30,4 +30,7 @@ func SetupRoutes(app *fiber.App) {
     // Route for OTP verification
     app.Post("/verify-otp", controller.VerifyOTP)
 
+    // Define a new route for resending OTP
+    app.Post("/resend-otp", controller.ResendOTPHandler)
+    
 }
