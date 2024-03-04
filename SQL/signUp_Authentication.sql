@@ -15,7 +15,7 @@ curl -X POST \
   -d '{
     "firstname": "test",
     "lastname": "user",
-    "username": "user12",
+    "username": "user1",
     "email":    "user@gmail.com",
     "password": "Password123",
     "confirm-password": "Password123"

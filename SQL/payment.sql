@@ -12,10 +12,10 @@
     {
       "id": 2,
       "name": "Burger",
-      "price": 8,
+      "price": 10,
       "order_id": 2
     }
   ],
   "total_items": 2,
-  "total_pay": 18.0
+  "total_pay": 20.0
 }

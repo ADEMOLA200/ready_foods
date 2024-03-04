@@ -9,7 +9,7 @@
         },
         {
             "name": "Item 2",
-            "price": 400
+            "price": 300
         }
     ],
     "total_item": 2,

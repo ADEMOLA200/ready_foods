@@ -9,6 +9,6 @@ curl -X GET \
   http://localhost:3000/login \
   -H 'Content-Type: application/json' \
   -d '{
-    "email": "odukoyaabdullah@gmail.com",
-    "password": "123"
+    "email": "user@gmail.com",
+    "password": "Password123"
 }'
