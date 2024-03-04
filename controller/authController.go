@@ -211,7 +211,7 @@ func VerifyOTP(c *fiber.Ctx) error {
 			c.Status(http.StatusBadRequest)
 			log.Println("OTP has expired for user:", user.ID)
 			return c.JSON(fiber.Map{
-				"error": "OTP has expired",
+				"error": "OTP has expired, request a new OTP code.",
 			})
 		}
 	}
@@ -301,22 +301,6 @@ func ResendOTPHandler(c *fiber.Ctx) error {
 	// Respond with success message
 	return c.JSON(fiber.Map{
 		"message": "OTP resent to your email",
-	})
-}
-
-// Logout handles the user logout process
-func Logout(c *fiber.Ctx) error {
-	cookie := fiber.Cookie{
-		Name:     "jwt",
-		Value:    "",
-		Expires:  time.Now().Add(-time.Hour),
-		HTTPOnly: true,
-	}
-
-	c.Cookie(&cookie)
-
-	return c.JSON(fiber.Map{
-		"message": "Logout successful",
 	})
 }
 
@@ -485,4 +469,21 @@ func sendOTPEmail(email, otp string) error {
 	}
 
 	return nil
+}
+
+
+// Logout handles the user logout process
+func Logout(c *fiber.Ctx) error {
+	cookie := fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+	}
+
+	c.Cookie(&cookie)
+
+	return c.JSON(fiber.Map{
+		"message": "Logout successful",
+	})
 }
