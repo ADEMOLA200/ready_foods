@@ -26,10 +26,10 @@ var (
 )
 
 const (
-	smtpUserEnv          = "SMTP_USER"     // SMTP username environment variable
-	smtpPasswordEnv      = "SMTP_PASSWORD" // SMTP password environment variable
-	smtpHost             = "smtp.elasticemail.com"
-	smtpPort             = 2525
+	smtpUserEnv          = "SMTP_USER"     // SMTP username environment variable make sure to set SMTP_USER env variables
+	smtpPasswordEnv      = "SMTP_PASSWORD" // SMTP password environment variable make sure to set SMTP_PASSWORD env variables
+	smtpHost             = "smtp.elasticemail.com" // SMTP host of Elastic Email make sure to use your own SMTP host
+	smtpPort             = 2525 // SMTP port number of Elastic Email make sure to use your own SMTP port
 	authentication       = "plain"
 	enable_starttls_auto = true
 )
@@ -173,7 +173,7 @@ func SignIn(c *fiber.Ctx) error {
         })
     }
 
-	log.Println("OTP has been sent to user's email", user.Email)
+	log.Println("OTP has been sent to user's email: ", user.Email)
 
     c.Status(http.StatusOK)
     return c.JSON(fiber.Map{
@@ -231,6 +231,9 @@ func VerifyOTP(c *fiber.Ctx) error {
         })
     }
 
+    // Log successful sign-in
+    log.Println("User", user.Username, "has successfully signed in")
+
     // Proceed with sign-in
     // You can set up session or JWT token here
 
@@ -266,6 +269,8 @@ func ResendOTP(email string) error {
     if err := sendOTPEmail(email, otp); err != nil {
         return err
     }
+
+	log.Println("OTP has been resent to user's email: ", user.Email)
 
     return nil
 }
