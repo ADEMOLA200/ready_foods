@@ -173,7 +173,7 @@ func SignIn(c *fiber.Ctx) error {
         })
     }
 
-	log.Println("OTP has been sent to user's email: ", user.Email)
+	log.Println("OTP has been sent to the user's email: ", user.Email)
 
     c.Status(http.StatusOK)
     return c.JSON(fiber.Map{
