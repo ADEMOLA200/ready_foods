@@ -21,3 +21,4 @@ type RevokedToken struct {
 	Token     string `gorm:"type:varchar(255);unique_index" json:"token"`
 	RevokedAt time.Time
 }
+ 
