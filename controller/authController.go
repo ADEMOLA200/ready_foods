@@ -11,6 +11,7 @@ import (
 	"net/smtp"
 	"os"
 	"strconv"
+	"strings"
 	"text/template"
 	"time"
 
@@ -34,81 +35,110 @@ const (
 	enable_starttls_auto = true
 )
 
+// extractDomain extracts the domain part from an email address
+func extractDomain(email string) string {
+    parts := strings.Split(email, "@")
+    if len(parts) == 2 {
+        return parts[1] // return the domain part
+    }
+    return "" // return empty string if email format is invalid
+}
+
 // SignUp handles the user signup process
 func SignUp(c *fiber.Ctx) error {
-	var user models.User
-	if err := c.BodyParser(&user); err != nil {
+    var user models.User
+    if err := c.BodyParser(&user); err != nil {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Invalid JSON format",
+        })
+    }
+
+    if user.Password != user.ConfirmPassword {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Passwords do not match",
+        })
+    }
+
+    result, err := verifier.Verify(user.Email)
+    if err != nil {
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Error verifying email",
+        })
+    }
+
+    if !result.Syntax.Valid {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Invalid email syntax",
+        })
+    }
+
+    // Extract domain from the email address
+    domain := extractDomain(user.Email)
+
+    // Check if the email domain is allowed
+	allowedDomains := []string{"gmail.com", "email.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "mail.com"}
+	domainAllowed := false
+	for _, allowedDomain := range allowedDomains {
+		if domain == allowedDomain {
+			domainAllowed = true
+			break
+		}
+	}
+	if !domainAllowed {
 		c.Status(http.StatusBadRequest)
 		return c.JSON(fiber.Map{
-			"error": "Invalid JSON format",
+			"error": "Email address must be from " + strings.Join(allowedDomains, ", "),
 		})
 	}
 
-	if user.Password != user.ConfirmPassword {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "Passwords do not match",
-		})
-	}
+    if result.Disposable {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Disposable email not allowed",
+        })
+    }
 
-	result, err := verifier.Verify(user.Email)
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"error": "Error verifying email",
-		})
-	}
+    if result.Reachable == "no" {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Email address not reachable",
+        })
+    }
 
-	if !result.Syntax.Valid {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "Invalid email syntax",
-		})
-	}
+    if !result.HasMxRecords {
+        c.Status(http.StatusBadRequest)
+        return c.JSON(fiber.Map{
+            "error": "Domain not properly set up to receive emails",
+        })
+    }
 
-	if result.Disposable {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "Disposable email not allowed",
-		})
-	}
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 14)
+    if err != nil {
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Error hashing password",
+        })
+    }
+    user.Password = string(hashedPassword)
 
-	if result.Reachable == "no" {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "Email address not reachable",
-		})
-	}
+    r := database.DB.Create(&user)
+    if r.Error != nil {
+        c.Status(http.StatusInternalServerError)
+        return c.JSON(fiber.Map{
+            "error": "Error creating user",
+        })
+    }
 
-	if !result.HasMxRecords {
-		c.Status(http.StatusBadRequest)
-		return c.JSON(fiber.Map{
-			"error": "Domain not properly set up to receive emails",
-		})
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 14)
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"error": "Error hashing password",
-		})
-	}
-	user.Password = string(hashedPassword)
-
-	r := database.DB.Create(&user)
-	if r.Error != nil {
-		c.Status(http.StatusInternalServerError)
-		return c.JSON(fiber.Map{
-			"error": "Error creating user",
-		})
-	}
-
-	c.Status(http.StatusOK)
-	return c.JSON(fiber.Map{
-		"message": "User created successfully",
-	})
+    c.Status(http.StatusOK)
+    return c.JSON(fiber.Map{
+        "message": "User created successfully",
+    })
 }
+
 
 // Controller logic for sending OTP after successful sign-in attempt
 func SignIn(c *fiber.Ctx) error {
@@ -177,7 +207,7 @@ func SignIn(c *fiber.Ctx) error {
 
     c.Status(http.StatusOK)
     return c.JSON(fiber.Map{
-        "message": "OTP sent to your email",
+        "message": "OTP has been sent to your email login with the OTP provided. Please check your email.",
     })
 }
 
@@ -410,6 +440,7 @@ func sendOTPEmail(email, otp string) error {
 			</div>
 			<div class="footer">
 				<p>This is an automated email. Please do not reply.</p>
+				<p> If you didn't request this OTP, please contact us immediately.</p>
 			</div>
 		</div>
 	</body>
@@ -438,7 +469,7 @@ func sendOTPEmail(email, otp string) error {
 	htmlBody := tpl.String()
 
 	// Compose the email message
-	fromAddress := "Odukoya Abdullahi Ademola <no-reply@example.com>"
+	fromAddress := "Ready Foods  <no-reply@example.com>"
 	toAddress := email
 	subject := "Your OTP for sign-in"
 	contentType := "text/html; charset=UTF-8"
